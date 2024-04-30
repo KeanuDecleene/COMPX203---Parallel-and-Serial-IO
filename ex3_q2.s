@@ -20,4 +20,3 @@ j main
 changeChar: #if char is not lowercase change to replacement character
  sw $4, 0x70000($0)
  j main
-
