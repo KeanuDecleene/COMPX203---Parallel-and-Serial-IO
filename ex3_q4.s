@@ -1,16 +1,23 @@
 .global main
 .text 
 
-main:
+main: 
+    subui $sp, $sp, 1
+    sw $ra, 0($sp)
+
+multiTask: #loops giving each job a turn
     jal serial_job
     jal parallel_job
-    j main
+    j multiTask
 
-main:
+returnToMulti: #returns 
+    jr $ra
+
+serial_job:
     addi $4, $0, '*' #sets replacement character
     lw $11, 0x70003($0) #gets status register value
     andi $11, $11, 0x1 #checks transmit data
-    beqz $11, main #if not ready loop until it is
+    beqz $11, returnToMulti #if not ready loop until it is
     lw $3, 0x70001($0) #gets character from serial port 1
     sw $3, 0x70000($0) #sends character to serial port 1
 
@@ -19,15 +26,13 @@ main:
     slei $3, $3, 'z' #if character is less than or equal to 'z' then dont change char
     beqz $3, changeChar
 
-    j main
+    j multiTask
 
 changeChar: #if char is not lowercase change to replacement character
     sw $4, 0x70000($0)
-    j main
+    j multiTask
+    
 parallel_job:
-    subui $sp, $sp, 1
-    sw $ra, 0($sp)
-
     start:
         addi $7, $0, 0xffff #for all leds to be on register
         addi $2, $0, 0 #for the switches value to be reset
@@ -36,7 +41,7 @@ parallel_job:
         lw $2, 0x73000($0) #gets value from the switches
 
         lw $3, 0x73001($0) #loads the value from push button
-        beqz $3, pollingLoop #waits for the value
+        beqz $3, returnToMulti #waits for the value
         andi $4, $3, 0x1 #looks to see if the push button value is button 0
         bnez $4, leaveSwitches #if it is go to leave the switches
         andi $4, $3, 0x2 #looks to see if the push button value is button 1
@@ -75,4 +80,5 @@ parallel_job:
         sw $2, 0x73007($0) #SHOWS upper right SSD
         srli $2, $2, 4
         sw $2, 0x73006($0) #SHOWS upper left SSD
-        j start
+        lw $ra, 0($sp)
+        j multiTask
